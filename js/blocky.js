@@ -137,18 +137,29 @@ function getItemByID(id){
   return foundObject;
 }
 
+function stopItemMoving(id){
+  findId = state.onScreen.movingLeft.findIndex(item => item.id == id);
+  if (findId == -1){
+    // in movingRight
+    findId = state.onScreen.movingRight.findIndex(item => item.id == id);
+    state.onScreen.movingRight[findId].isMoving = false;
+  }
+  else {
+    state.onScreen.movingLeft[findId].isMoving = false;
+  };
+}
+
 function checkCollissionType(id1,id2){
   // gets two collided item ids, check what to do with 'em
   console.log(id1+' hit '+id2);
-  id1 = getItemByID(id1);
-  id2 = getItemByID(id2);
-  if (id1.color == id2.color){
-    // score!
-    // TODO
+
+  item1 = getItemByID(id1);
+  item2 = getItemByID(id2);
+  if (item1.color == item2.color){
+    console.log('score');
   }
   else {
-    // no score!
-    // TODO
+    console.log('no score');
   }
 }
 
@@ -160,8 +171,10 @@ function moveGroup(theGroup,movex,movey){
       var checkColl = checkCollission(theGroup[i],movex,movey);
       if (checkColl !== false){
         if (movey == 0){
-          // this is a horiz move, so stop or score
-          checkCollissionType(theGroup[i].id,checkColl);
+          // this is a horiz move, so stop and possibly score
+          stopItemMoving(theGroup[i].id);
+          stopItemMoving(checkColl);
+          checkCollissionType(theGroup[i].id,checkColl); // checks for score
         }
       }
       else {

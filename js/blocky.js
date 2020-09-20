@@ -9,15 +9,37 @@ var canvasWidthUnits = 20;
 var canvasHeightUnits = 20;
 var framesPerSec = 10;
 var lastRender = 0;
+var sideSpeed = 10; // frames
+var sideCounter = 0;
 
 var state = {
-  x: 10,
-  y: 10,
   pressedKeys: {
     up: false,
-    down: false
+    down: false,
+    left: false,
+    right: false
   },
-  color: 0
+  onScreen : {
+    movingRight: [
+      {
+        x : 2,
+        y : 10,
+        color: 1
+      },
+      {
+        x : 6,
+        y : 15,
+        color: 2
+      }    
+    ],
+    movingLeft: [
+      {
+        x : 15,
+        y : 18,
+        color: 0
+      }  
+    ]
+  }
 }
 
 function drawSquare(canvas,hLoc,vLoc,color){
@@ -44,48 +66,77 @@ function drawChequers(ctx){
 // really useful explainer and sample code on the game loop using state, loop and draw:
 // https://www.sitepoint.com/quick-tip-game-loop-in-javascript/
 
+function checkBounds(movingItem){
+  // keep item in bounds - clip to other side if exceeded
+  if (movingItem.x > (canvasWidthUnits - 1)){
+    movingItem.x = 0;
+  }
+  else if (movingItem.x < 0){
+      movingItem.x = (canvasWidthUnits - 1);
+  }
+  if (movingItem.y > (canvasHeightUnits - 1)){
+    movingItem.y = 0;
+  }
+  else if (movingItem.y < 0){
+      movingItem.y = (canvasHeightUnits - 1);
+  }
+  return movingItem;
+}
+
+function moveGroup(theGroup,movex,movey){
+  for (var i = 0, l = theGroup.length; i < l; i++) {
+    theGroup[i].x = theGroup[i].x + movex;
+    theGroup[i].y = theGroup[i].y + movey;
+    theGroup[i] = checkBounds(theGroup[i]);
+  }
+  return theGroup;
+}
+
 function update(progress) {
   // Update the state of the world
 
-  // cycle color, just to make the framerate clear!
-  state.color++;
-  if (state.color > 2){
-    state.color = 0;
-  }
-
-  // move state according to user input
-  if (state.pressedKeys.left) {
-    state.x--;
-  }
-  if (state.pressedKeys.right) {
-    state.x++;
-  }
+  // move U/D state according to user input
   if (state.pressedKeys.up) {
-    state.y--;
+    // input up
+    // move right units down
+    state.onScreen.movingRight = moveGroup(state.onScreen.movingRight,0,-1);
+    // move left units up
+    state.onScreen.movingLeft = moveGroup(state.onScreen.movingLeft,0,1);    
   }
   if (state.pressedKeys.down) {
-    state.y++;
+    // input down
+    // move right units up
+    state.onScreen.movingRight = moveGroup(state.onScreen.movingRight,0,1);
+    // move left units down
+    state.onScreen.movingLeft = moveGroup(state.onScreen.movingLeft,0,-1);
   }
-
-  // keep in bounds
-  if (state.x > 19){
-    state.x = 19;
+  
+  // move R/L state according to timer
+  sideCounter++;
+  if (sideSpeed == sideCounter){    
+    // move right
+    state.onScreen.movingRight = moveGroup(state.onScreen.movingRight,1,0);
+    // move left
+    state.onScreen.movingLeft = moveGroup(state.onScreen.movingLeft,-1,0);
+    // reset counter until next R/L move
+    sideCounter = 0;
   }
-  if (state.y > 19){
-    state.y = 19;
-  }
-  if (state.x < 0){
-    state.x = 0;
-  }
-  if (state.y < 0){
-    state.y = 0;
-  }  
 }
 
 function draw() {
-  // draw the world - clear canvas, draw square at current loc
+  // draw the world - clear canvas
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-  drawSquare(ctx,state.x,state.y,cycleColors[state.color]);
+  // draw right moving items
+  for (var i = 0, l = state.onScreen.movingRight.length; i < l; i++) {
+    var thisSquare = state.onScreen.movingRight[i];
+    drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
+  }
+  // TODO draw left moving items
+  for (var i = 0, l = state.onScreen.movingLeft.length; i < l; i++) {
+    var thisSquare = state.onScreen.movingLeft[i];
+    drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
+  }
+  
 }
 
 function loop(timestamp) {

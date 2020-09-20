@@ -9,9 +9,12 @@ var canvasWidthUnits = 20;
 var canvasHeightUnits = 20;
 var framesPerSec = 10;
 var lastRender = 0;
-var sideSpeed = 10; // frames
+var sideSpeed = 7; // frames
 var sideCounter = 0;
+var theScore = 0;
+var lastObjectID = 4
 
+// sample start state with a few items
 var state = {
   pressedKeys: {
     up: false,
@@ -22,49 +25,50 @@ var state = {
   onScreen : {
     movingRight: [
       {
+        id: 1,
         x : 2,
         y : 10,
-        color: 1
+        color: 1,
+        isMoving: true
       },
       {
+        id: 2,
         x : 6,
-        y : 15,
-        color: 2
+        y : 16,
+        color: 2,
+        isMoving: true
       }    
     ],
     movingLeft: [
       {
-        x : 15,
+        id: 3,
+        x : 14,
         y : 18,
-        color: 0
+        color: 0,
+        isMoving: true
+      },
+      {
+        id: 4,
+        x : 14,
+        y : 2,
+        color: 1,
+        isMoving: true
       }  
     ]
   }
 }
+
+
+
+
+// really useful explainer and sample code on the game loop using state, loop and draw:
+// https://www.sitepoint.com/quick-tip-game-loop-in-javascript/
 
 function drawSquare(canvas,hLoc,vLoc,color){
   // draws a single unit
   canvas.fillStyle = colorCodes[color];
   canvas.fillRect(hLoc*(canvasWidth/canvasWidthUnits), vLoc*(canvasHeight/canvasHeightUnits), (canvasWidth/canvasWidthUnits), (canvasHeight/canvasHeightUnits));
 }
-
-function drawChequers(ctx){
-  // draws an rgb grid as a test
-  
-  colorIndex = 0
-  for (x = 0; x < canvasWidthUnits; x++) {
-    for (y = 0; y < canvasHeightUnits; y++) {
-      drawSquare(ctx,x,y,cycleColors[colorIndex]);
-      colorIndex++;
-      if (colorIndex == 3){
-        colorIndex = 0;
-      }
-    }
-  }
-}
-
-// really useful explainer and sample code on the game loop using state, loop and draw:
-// https://www.sitepoint.com/quick-tip-game-loop-in-javascript/
 
 function checkBounds(movingItem){
   // keep item in bounds - clip to other side if exceeded
@@ -83,11 +87,90 @@ function checkBounds(movingItem){
   return movingItem;
 }
 
-function moveGroup(theGroup,movex,movey){
+function checkCollission(thisItem,movex,movey){
+  // receives individual item and intended travel, checks if something there (true) or not (false)
+  // create object of potential new location
+  var potentialLocation = {
+    x : (thisItem.x + movex),
+    y : (thisItem.y + movey)
+  }
+  // constrain  potential location in bounds
+  potentialLocation = checkBounds(potentialLocation);
+  // set up return var
+  var foundCollission = false;
+  // iterate all units, moving or not
+    for (var i = 0, l = state.onScreen.movingRight.length; i < l; i++) {
+      if (state.onScreen.movingRight[i].x == potentialLocation.x){
+        if (state.onScreen.movingRight[i].y == potentialLocation.y){
+          // foundCollission = true;
+          foundCollission = state.onScreen.movingRight[i].id;
+        }
+      }
+    };
+    for (var i = 0, l = state.onScreen.movingLeft.length; i < l; i++) {
+      if (state.onScreen.movingLeft[i].x == potentialLocation.x){
+        if (state.onScreen.movingLeft[i].y == potentialLocation.y){
+          // foundCollission = true;
+          foundCollission = state.onScreen.movingLeft[i].id;
+        }
+      }
+    };  
+  return foundCollission;
+}
+
+function getItemByID(id){
+  // passed an id, return the object
+  foundObject = false;
+  for (var i = 0, l = state.onScreen.movingLeft.length; i < l; i++) {
+    if (state.onScreen.movingLeft[i].id == id){
+      foundObject = state.onScreen.movingLeft[i];
+    }
+  }
+  // only check the other array if needed..
+  if (foundObject === false){
+    for (var i = 0, l = state.onScreen.movingRight.length; i < l; i++) {
+      if (state.onScreen.movingRight[i].id == id){
+        foundObject = state.onScreen.movingRight[i];
+      }
+    }
+  } 
+  return foundObject;
+}
+
+function checkCollissionType(id1,id2){
+  // gets two collided item ids, check what to do with 'em
+  console.log(id1+' hit '+id2);
+  id1 = getItemByID(id1);
+  id2 = getItemByID(id2);
+  if (id1.color == id2.color){
+    // score!
+    // TODO
+  }
+  else {
+    // no score!
+    // TODO
+  }
+}
+
+function moveGroup(theGroup,movex,movey){  
+  // move any isMoving items in array theGroup in direction movex,movey
+  // also checks for collissions that might block the move and constrains in bounds
   for (var i = 0, l = theGroup.length; i < l; i++) {
-    theGroup[i].x = theGroup[i].x + movex;
-    theGroup[i].y = theGroup[i].y + movey;
-    theGroup[i] = checkBounds(theGroup[i]);
+    if (theGroup[i].isMoving) {
+      var checkColl = checkCollission(theGroup[i],movex,movey);
+      if (checkColl !== false){
+        if (movey == 0){
+          // this is a horiz move, so stop or score
+          checkCollissionType(theGroup[i].id,checkColl);
+        }
+      }
+      else {
+        // no collide so move
+        theGroup[i].x = theGroup[i].x + movex;
+        theGroup[i].y = theGroup[i].y + movey;
+        theGroup[i] = checkBounds(theGroup[i]);
+      }    
+    }  
   }
   return theGroup;
 }
@@ -136,7 +219,8 @@ function draw() {
     var thisSquare = state.onScreen.movingLeft[i];
     drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
   }
-  
+  // draw score
+  document.getElementById('blockyScore').innerHTML = 'Score '+theScore;
 }
 
 function loop(timestamp) {

@@ -1,5 +1,7 @@
 console.log('go blocky');
 
+// TODO next - remove elements when they collide successfully and score - using delete array[n] maybe?
+
 // define global oject of color codes
 var colorCodes = {'red':'#ff0000','green':'#00ff00','blue':'#0000ff','white':'#ffffff'};
 var cycleColors = ["red", "green", "blue"]; // just for convenience of iterating
@@ -12,7 +14,12 @@ var lastRender = 0;
 var sideSpeed = 7; // frames
 var sideCounter = 0;
 var theScore = 0;
-var lastObjectID = 4
+var lastObjectID = 2
+var debugFrameCounter = 0;
+
+var newSpriteCounter = 0;
+var newSpriteEvery = 60;
+
 
 // sample start state with a few items
 var state = {
@@ -30,23 +37,9 @@ var state = {
         y : 10,
         color: 1,
         isMoving: true
-      },
-      {
-        id: 2,
-        x : 6,
-        y : 16,
-        color: 2,
-        isMoving: true
-      }    
+      } 
     ],
-    movingLeft: [
-      {
-        id: 3,
-        x : 14,
-        y : 18,
-        color: 0,
-        isMoving: true
-      },
+    movingLeft: [      
       {
         id: 4,
         x : 14,
@@ -156,7 +149,10 @@ function checkCollissionType(id1,id2){
   item1 = getItemByID(id1);
   item2 = getItemByID(id2);
   if (item1.color == item2.color){
-    console.log('score');
+    // inc score
+    theScore = theScore + (sideSpeed*10);
+    // init new blocks now
+    newSpriteCounter = newSpriteEvery;
   }
   else {
     console.log('no score');
@@ -188,6 +184,94 @@ function moveGroup(theGroup,movex,movey){
   return theGroup;
 }
 
+function randomIntFromInterval(min, max) { 
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+function addNewBlocks(){
+  // first check - what vacant spaces do we have on edges?
+  var leftState = Array();
+  var rightState = Array(); 
+  // iterate all blocks, marking any where x = 0 or x = (canvasWidthUnits - 1)
+  var allBlocks = state.onScreen.movingLeft.concat(state.onScreen.movingRight);
+  for (var i = 0, l = allBlocks.length; i < l; i++) {
+    if (allBlocks[i].x == 0){
+      leftState.push(i);
+    }
+    else if (allBlocks[i].x == (canvasWidthUnits - 1)){
+      rightState.push(i);
+    }  
+  };
+  if ((leftState.length == canvasHeight) || (rightState.length == canvasHeight)){
+    // all units occupied, yikes
+    console.log('all occupied cannot add!');
+  }
+  else {
+    // create array of clear left edge elements
+    var leftClearSquares = Array();
+    for (var i = 0, l = (canvasHeightUnits - 1); i < l; i++) {
+      if (leftState.includes(i)){
+        // full!
+      }
+      else {
+        leftClearSquares.push(i);
+      }
+    }
+    var rightClearSquares = Array();
+    for (var i = 0, l = (canvasHeightUnits - 1); i < l; i++) {
+      if (rightState.includes(i)){
+        // full!
+      }
+      else {
+        rightClearSquares.push(i);
+      }
+    }   
+    // add new blocks in spaces
+    var newLeftSpace = randomIntFromInterval(0, (canvasHeightUnits - leftState.length));
+    var newLeftLocation = leftClearSquares[newLeftSpace];
+    var newRightMovingBlock = {
+      id : (lastObjectID+1),
+      x : 0,
+      y : newLeftLocation,
+      color: randomIntFromInterval(0,2),
+      isMoving: true
+    };
+    state.onScreen.movingRight.push(newRightMovingBlock); 
+    
+    var newRightSpace = randomIntFromInterval(0, (canvasHeightUnits - rightState.length));
+    var newRightLocation = rightClearSquares[newRightSpace];
+    console.log('New right at '+newRightLocation);
+    var newLeftMovingBlock = {
+      id : (lastObjectID+2),
+      x : (canvasWidthUnits - 1),
+      y : newRightLocation,
+      color: randomIntFromInterval(0,2),
+      isMoving: true
+    };
+    state.onScreen.movingLeft.push(newLeftMovingBlock);
+    // update globals
+    lastObjectID = (lastObjectID+2);
+    newSpriteCounter = 0;
+  }
+}
+
+function checkGameOver(){
+  // check to see if anything still moving!
+  foundMoving = false;
+  for (var i = 0, l = state.onScreen.movingLeft.length; i < l; i++) {
+    if (state.onScreen.movingLeft[i].isMoving){
+      return false;
+    }
+  }
+  for (var i = 0, l = state.onScreen.movingRight.length; i < l; i++) {
+    if (state.onScreen.movingRight[i].isMoving){
+      return false;
+    }
+  }
+  // not found a moving item? in that case, game over.
+  return true;
+}
+
 function update(progress) {
   // Update the state of the world
 
@@ -217,6 +301,9 @@ function update(progress) {
     // reset counter until next R/L move
     sideCounter = 0;
   }
+  if (newSpriteCounter == newSpriteEvery){
+    addNewBlocks();
+  }
 }
 
 function draw() {
@@ -227,26 +314,38 @@ function draw() {
     var thisSquare = state.onScreen.movingRight[i];
     drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
   }
-  // TODO draw left moving items
+  // draw left moving items
   for (var i = 0, l = state.onScreen.movingLeft.length; i < l; i++) {
     var thisSquare = state.onScreen.movingLeft[i];
     drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
   }
   // draw score
   document.getElementById('blockyScore').innerHTML = 'Score '+theScore;
+  // debug counter
+  document.getElementById('blockyFrameCounter').innerHTML = debugFrameCounter;
 }
 
 function loop(timestamp) {
   // loop to control frames - self-reinitiates
-  setTimeout(function(){ 
-      var progress = timestamp - lastRender;
+  debugFrameCounter++;
+  newSpriteCounter++;
+  if (checkGameOver()){
+    // um, game over
+    console.log('Game over!');
+  }
+  else {
+    setTimeout(function(){ 
+        var progress = timestamp - lastRender;
 
-      update(progress);
-      draw();
+        update(progress);
 
-      lastRender = timestamp;
-      window.requestAnimationFrame(loop);
-    }, 1000/framesPerSec); 
+        draw();
+
+        lastRender = timestamp;
+        window.requestAnimationFrame(loop);
+      }, 1000/framesPerSec); 
+  }
+  
 }
 
 // listen for key inputs and set state accordingly
@@ -276,5 +375,5 @@ document.addEventListener("DOMContentLoaded", function(event) {
   var blockyCanvas = document.getElementById("blockyCanvas");
   var ctx = blockyCanvas.getContext("2d");
   window.ctx = ctx;
-  window.requestAnimationFrame(loop)
+  window.requestAnimationFrame(loop);
 });  

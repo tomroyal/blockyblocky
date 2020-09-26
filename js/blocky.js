@@ -1,7 +1,5 @@
 console.log('go blocky');
 
-// TODO next - remove elements when they collide successfully and score - using delete array[n] maybe?
-
 // define global oject of color codes
 var colorCodes = {'red':'#ff0000','green':'#00ff00','blue':'#0000ff','white':'#ffffff'};
 var cycleColors = ["red", "green", "blue"]; // just for convenience of iterating
@@ -11,15 +9,15 @@ var canvasWidthUnits = 20;
 var canvasHeightUnits = 20;
 var framesPerSec = 15;
 var lastRender = 0;
-var sideSpeed = 7; // frames
+var sideSpeed = 10; // frames
 var sideCounter = 0;
 var theScore = 0;
 var lastObjectID = 2
 var debugFrameCounter = 0;
 
 var newSpriteCounter = 0;
-var newSpriteEvery = 60;
-
+var newSpriteEvery = 10;
+var growMode = false;
 
 // sample start state with a few items
 var state = {
@@ -33,14 +31,14 @@ var state = {
     {
       id: 1,
       x : 2,
-      y : 10,
+      y : 9,
       color: 1,
       isMoving: 'right'
     }, 
     {
       id: 2,
-      x : 14,
-      y : 2,
+      x : 7,
+      y : 1,
       color: 1,
       isMoving: 'left'
     }  
@@ -91,7 +89,6 @@ function checkCollission(thisItem,movex,movey){
     for (var i = 0, l = state.onScreen.length; i < l; i++) {
       if (state.onScreen[i].x == potentialLocation.x){
         if (state.onScreen[i].y == potentialLocation.y){
-          // foundCollission = true;
           foundCollission = state.onScreen[i].id;
         }
       }
@@ -115,7 +112,7 @@ function stopItemMoving(id){
 }
 
 function deleteItemById(deleteItemId){
-  console.log('delete '+deleteItemId);
+  // console.log('delete '+deleteItemId);
   //  delete the block with id deleteItemId
   var newMoving = Array();
   for (var i = 0, l = state.onScreen.length; i < l; i++) {
@@ -134,18 +131,23 @@ function deleteItemById(deleteItemId){
 
 function checkCollissionType(id1,id2){
   // gets two collided item ids, check what to do with 'em
-  console.log(id1+' hit '+id2);
+  // console.log(id1+' hit '+id2);
 
   item1 = getItemByID(id1);
   item2 = getItemByID(id2);
   if (item1.color == item2.color){
     // inc score
     theScore = theScore + (sideSpeed*10);
-    // TODO remove those items!
+    // remove those items!
     deleteItemById(id1);
     deleteItemById(id2);
     // init new blocks now
-    newSpriteCounter = newSpriteEvery; // TODO
+    newSpriteCounter = newSpriteEvery; 
+    if (growMode) {
+      canvasWidthUnits++;
+      canvasHeightUnits++;
+    }
+    
     
   }
   else {
@@ -197,14 +199,14 @@ function addNewBlocks(){
       rightState.push(i);
     }  
   };
-  if ((leftState.length == canvasHeight) || (rightState.length == canvasHeight)){
+  if ((leftState.length == canvasHeightUnits) || (rightState.length == canvasHeightUnits)){
     // all units occupied, yikes
-    console.log('all occupied cannot add!');
+    console.log('cannot add new blocks..');
   }
   else {
     // create array of clear left edge elements
     var leftClearSquares = Array();
-    for (var i = 0, l = (canvasHeightUnits - 1); i < l; i++) {
+    for (var i = 0, l = (canvasHeightUnits); i < l; i++) {
       if (leftState.includes(i)){
         // full!
       }
@@ -213,7 +215,7 @@ function addNewBlocks(){
       }
     }
     var rightClearSquares = Array();
-    for (var i = 0, l = (canvasHeightUnits - 1); i < l; i++) {
+    for (var i = 0, l = (canvasHeightUnits); i < l; i++) {
       if (rightState.includes(i)){
         // full!
       }
@@ -222,9 +224,19 @@ function addNewBlocks(){
       }
     }   
     // add new blocks in spaces
-    var newLeftSpace = randomIntFromInterval(1, (canvasHeightUnits - leftClearSquares.length));
+    // TODO this needs fixing, y is sometimes null?
+    var newLeftSpace = randomIntFromInterval(0, (canvasHeightUnits - leftState.length - 1));
     var newLeftLocation = leftClearSquares[newLeftSpace];
+    /*
+    console.log('left state');
+    console.log(leftState);
+    console.log('length');
+    console.log(leftState.length);
+    console.log('left clear sq');
+    console.log(leftClearSquares);
+    console.log('rand between 0 and '+(canvasHeightUnits - leftState.length - 1)+ 'was '+newLeftSpace);
     console.log('New left at '+newLeftLocation+' id '+(lastObjectID+1));
+    */
     var newRightMovingBlock = {
       id : (lastObjectID+1),
       x : 0,
@@ -234,9 +246,9 @@ function addNewBlocks(){
     };
     state.onScreen.push(newRightMovingBlock); 
     
-    var newRightSpace = randomIntFromInterval(1, (canvasHeightUnits - rightClearSquares.length));
+    var newRightSpace = randomIntFromInterval(0, (canvasHeightUnits - rightState.length - 1));
     var newRightLocation = rightClearSquares[newRightSpace];
-    console.log('New right at '+newRightLocation+' id '+(lastObjectID+2));
+    // console.log('New right at '+newRightLocation+' id '+(lastObjectID+2));
     var newLeftMovingBlock = {
       id : (lastObjectID+2),
       x : (canvasWidthUnits - 1),
@@ -299,12 +311,14 @@ function update(progress) {
 
 function draw() {
   // draw the world - clear canvas
-  console.log('draw');
-  console.log(JSON.parse(JSON.stringify(state.onScreen)));
+  // console.log(JSON.parse(JSON.stringify(state.onScreen)));
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
   // draw all moving items
   for (var i = 0, l = state.onScreen.length; i < l; i++) {
     var thisSquare = state.onScreen[i];
+    if ((thisSquare.y < 0) || (thisSquare.y > canvasWidthUnits)){
+      console.log('whut '.thisSquare.id);
+    }
     drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
   }
 

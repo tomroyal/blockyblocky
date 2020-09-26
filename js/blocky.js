@@ -9,7 +9,7 @@ var canvasWidth = 400;
 var canvasHeight = 400;
 var canvasWidthUnits = 20;
 var canvasHeightUnits = 20;
-var framesPerSec = 10;
+var framesPerSec = 15;
 var lastRender = 0;
 var sideSpeed = 7; // frames
 var sideCounter = 0;
@@ -29,26 +29,22 @@ var state = {
     left: false,
     right: false
   },
-  onScreen : {
-    movingRight: [
-      {
-        id: 1,
-        x : 2,
-        y : 10,
-        color: 1,
-        isMoving: true
-      } 
-    ],
-    movingLeft: [      
-      {
-        id: 4,
-        x : 14,
-        y : 2,
-        color: 1,
-        isMoving: true
-      }  
-    ]
-  }
+  onScreen : [
+    {
+      id: 1,
+      x : 2,
+      y : 10,
+      color: 1,
+      isMoving: 'right'
+    }, 
+    {
+      id: 2,
+      x : 14,
+      y : 2,
+      color: 1,
+      isMoving: 'left'
+    }  
+  ]  
 }
 
 
@@ -92,54 +88,48 @@ function checkCollission(thisItem,movex,movey){
   // set up return var
   var foundCollission = false;
   // iterate all units, moving or not
-    for (var i = 0, l = state.onScreen.movingRight.length; i < l; i++) {
-      if (state.onScreen.movingRight[i].x == potentialLocation.x){
-        if (state.onScreen.movingRight[i].y == potentialLocation.y){
+    for (var i = 0, l = state.onScreen.length; i < l; i++) {
+      if (state.onScreen[i].x == potentialLocation.x){
+        if (state.onScreen[i].y == potentialLocation.y){
           // foundCollission = true;
-          foundCollission = state.onScreen.movingRight[i].id;
+          foundCollission = state.onScreen[i].id;
         }
       }
     };
-    for (var i = 0, l = state.onScreen.movingLeft.length; i < l; i++) {
-      if (state.onScreen.movingLeft[i].x == potentialLocation.x){
-        if (state.onScreen.movingLeft[i].y == potentialLocation.y){
-          // foundCollission = true;
-          foundCollission = state.onScreen.movingLeft[i].id;
-        }
-      }
-    };  
   return foundCollission;
 }
 
 function getItemByID(id){
   // passed an id, return the object
-  foundObject = false;
-  for (var i = 0, l = state.onScreen.movingLeft.length; i < l; i++) {
-    if (state.onScreen.movingLeft[i].id == id){
-      foundObject = state.onScreen.movingLeft[i];
+  for (var i = 0, l = state.onScreen.length; i < l; i++) {
+    if (state.onScreen[i].id == id){
+      foundObject = state.onScreen[i];
     }
   }
-  // only check the other array if needed..
-  if (foundObject === false){
-    for (var i = 0, l = state.onScreen.movingRight.length; i < l; i++) {
-      if (state.onScreen.movingRight[i].id == id){
-        foundObject = state.onScreen.movingRight[i];
-      }
-    }
-  } 
   return foundObject;
 }
 
 function stopItemMoving(id){
-  findId = state.onScreen.movingLeft.findIndex(item => item.id == id);
-  if (findId == -1){
-    // in movingRight
-    findId = state.onScreen.movingRight.findIndex(item => item.id == id);
-    state.onScreen.movingRight[findId].isMoving = false;
+  findId = state.onScreen.findIndex(item => item.id == id);
+  state.onScreen[findId].isMoving = 'no';
+}
+
+function deleteItemById(deleteItemId){
+  console.log('delete '+deleteItemId);
+  //  delete the block with id deleteItemId
+  var newMoving = Array();
+  for (var i = 0, l = state.onScreen.length; i < l; i++) {
+    if (state.onScreen[i].id == deleteItemId){
+      foundAlready = true;
+    }
+    else {
+      newMoving.push(state.onScreen[i]);
+    }
   }
-  else {
-    state.onScreen.movingLeft[findId].isMoving = false;
-  };
+  state.onScreen.length = 0;
+  state.onScreen = state.onScreen.concat(newMoving);
+
+  return;
 }
 
 function checkCollissionType(id1,id2){
@@ -151,37 +141,43 @@ function checkCollissionType(id1,id2){
   if (item1.color == item2.color){
     // inc score
     theScore = theScore + (sideSpeed*10);
+    // TODO remove those items!
+    deleteItemById(id1);
+    deleteItemById(id2);
     // init new blocks now
-    newSpriteCounter = newSpriteEvery;
+    newSpriteCounter = newSpriteEvery; // TODO
+    
   }
   else {
-    console.log('no score');
+    // no score!
   }
 }
 
-function moveGroup(theGroup,movex,movey){  
-  // move any isMoving items in array theGroup in direction movex,movey
+function moveGroup(theFilter,movex,movey){  
+  // move any isMoving = theFilter items in array theGroup in direction movex,movey
   // also checks for collissions that might block the move and constrains in bounds
-  for (var i = 0, l = theGroup.length; i < l; i++) {
-    if (theGroup[i].isMoving) {
-      var checkColl = checkCollission(theGroup[i],movex,movey);
-      if (checkColl !== false){
-        if (movey == 0){
-          // this is a horiz move, so stop and possibly score
-          stopItemMoving(theGroup[i].id);
-          stopItemMoving(checkColl);
-          checkCollissionType(theGroup[i].id,checkColl); // checks for score
+  for (var i = 0, l = state.onScreen.length; i < l; i++) {
+    if(typeof state.onScreen[i] !== 'undefined') {
+      if (state.onScreen[i].isMoving == theFilter) {
+        var checkColl = checkCollission(state.onScreen[i],movex,movey);
+        if (checkColl !== false){
+          if (movey == 0){
+            // this is a horiz move, so stop and possibly score
+            stopItemMoving(state.onScreen[i].id);
+            stopItemMoving(checkColl);
+            checkCollissionType(state.onScreen[i].id,checkColl); // checks for score
+          }
         }
+        else {
+          // no collide so move
+          state.onScreen[i].x = state.onScreen[i].x + movex;
+          state.onScreen[i].y = state.onScreen[i].y + movey;
+          state.onScreen[i] = checkBounds(state.onScreen[i]);
+        }    
       }
-      else {
-        // no collide so move
-        theGroup[i].x = theGroup[i].x + movex;
-        theGroup[i].y = theGroup[i].y + movey;
-        theGroup[i] = checkBounds(theGroup[i]);
-      }    
     }  
   }
-  return theGroup;
+  return;
 }
 
 function randomIntFromInterval(min, max) { 
@@ -193,12 +189,11 @@ function addNewBlocks(){
   var leftState = Array();
   var rightState = Array(); 
   // iterate all blocks, marking any where x = 0 or x = (canvasWidthUnits - 1)
-  var allBlocks = state.onScreen.movingLeft.concat(state.onScreen.movingRight);
-  for (var i = 0, l = allBlocks.length; i < l; i++) {
-    if (allBlocks[i].x == 0){
+  for (var i = 0, l = state.onScreen.length; i < l; i++) {
+    if (state.onScreen[i].x == 0){
       leftState.push(i);
     }
-    else if (allBlocks[i].x == (canvasWidthUnits - 1)){
+    else if (state.onScreen[i].x == (canvasWidthUnits - 1)){
       rightState.push(i);
     }  
   };
@@ -227,28 +222,29 @@ function addNewBlocks(){
       }
     }   
     // add new blocks in spaces
-    var newLeftSpace = randomIntFromInterval(0, (canvasHeightUnits - leftState.length));
+    var newLeftSpace = randomIntFromInterval(1, (canvasHeightUnits - leftClearSquares.length));
     var newLeftLocation = leftClearSquares[newLeftSpace];
+    console.log('New left at '+newLeftLocation+' id '+(lastObjectID+1));
     var newRightMovingBlock = {
       id : (lastObjectID+1),
       x : 0,
       y : newLeftLocation,
       color: randomIntFromInterval(0,2),
-      isMoving: true
+      isMoving: 'right'
     };
-    state.onScreen.movingRight.push(newRightMovingBlock); 
+    state.onScreen.push(newRightMovingBlock); 
     
-    var newRightSpace = randomIntFromInterval(0, (canvasHeightUnits - rightState.length));
+    var newRightSpace = randomIntFromInterval(1, (canvasHeightUnits - rightClearSquares.length));
     var newRightLocation = rightClearSquares[newRightSpace];
-    console.log('New right at '+newRightLocation);
+    console.log('New right at '+newRightLocation+' id '+(lastObjectID+2));
     var newLeftMovingBlock = {
       id : (lastObjectID+2),
       x : (canvasWidthUnits - 1),
       y : newRightLocation,
       color: randomIntFromInterval(0,2),
-      isMoving: true
+      isMoving: 'left'
     };
-    state.onScreen.movingLeft.push(newLeftMovingBlock);
+    state.onScreen.push(newLeftMovingBlock);
     // update globals
     lastObjectID = (lastObjectID+2);
     newSpriteCounter = 0;
@@ -258,13 +254,8 @@ function addNewBlocks(){
 function checkGameOver(){
   // check to see if anything still moving!
   foundMoving = false;
-  for (var i = 0, l = state.onScreen.movingLeft.length; i < l; i++) {
-    if (state.onScreen.movingLeft[i].isMoving){
-      return false;
-    }
-  }
-  for (var i = 0, l = state.onScreen.movingRight.length; i < l; i++) {
-    if (state.onScreen.movingRight[i].isMoving){
+  for (var i = 0, l = state.onScreen.length; i < l; i++) {
+    if (state.onScreen[i].isMoving != 'no'){
       return false;
     }
   }
@@ -279,25 +270,25 @@ function update(progress) {
   if (state.pressedKeys.up) {
     // input up
     // move right units down
-    state.onScreen.movingRight = moveGroup(state.onScreen.movingRight,0,-1);
+    moveGroup('right',0,-1);
     // move left units up
-    state.onScreen.movingLeft = moveGroup(state.onScreen.movingLeft,0,1);    
+    moveGroup('left',0,1);    
   }
   if (state.pressedKeys.down) {
     // input down
     // move right units up
-    state.onScreen.movingRight = moveGroup(state.onScreen.movingRight,0,1);
+    moveGroup('right',0,1);
     // move left units down
-    state.onScreen.movingLeft = moveGroup(state.onScreen.movingLeft,0,-1);
+    moveGroup('left',0,-1);
   }
   
   // move R/L state according to timer
   sideCounter++;
   if (sideSpeed == sideCounter){    
     // move right
-    state.onScreen.movingRight = moveGroup(state.onScreen.movingRight,1,0);
+    moveGroup('right',1,0);
     // move left
-    state.onScreen.movingLeft = moveGroup(state.onScreen.movingLeft,-1,0);
+    moveGroup('left',-1,0);
     // reset counter until next R/L move
     sideCounter = 0;
   }
@@ -308,17 +299,15 @@ function update(progress) {
 
 function draw() {
   // draw the world - clear canvas
+  console.log('draw');
+  console.log(JSON.parse(JSON.stringify(state.onScreen)));
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-  // draw right moving items
-  for (var i = 0, l = state.onScreen.movingRight.length; i < l; i++) {
-    var thisSquare = state.onScreen.movingRight[i];
+  // draw all moving items
+  for (var i = 0, l = state.onScreen.length; i < l; i++) {
+    var thisSquare = state.onScreen[i];
     drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
   }
-  // draw left moving items
-  for (var i = 0, l = state.onScreen.movingLeft.length; i < l; i++) {
-    var thisSquare = state.onScreen.movingLeft[i];
-    drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
-  }
+
   // draw score
   document.getElementById('blockyScore').innerHTML = 'Score '+theScore;
   // debug counter
@@ -333,6 +322,9 @@ function loop(timestamp) {
     // um, game over
     console.log('Game over!');
   }
+  else if (state.pressedKeys.left) {
+    // QUIT
+  }  
   else {
     setTimeout(function(){ 
         var progress = timestamp - lastRender;

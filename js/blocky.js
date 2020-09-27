@@ -5,8 +5,8 @@ var colorCodes = {'red':'#ff0000','green':'#00ff00','blue':'#0000ff','white':'#f
 var cycleColors = ["red", "green", "blue"]; // just for convenience of iterating
 var canvasWidth = 400;
 var canvasHeight = 400;
-var canvasWidthUnits = 20;
-var canvasHeightUnits = 20;
+var canvasWidthUnits = 30;
+var canvasHeightUnits = 30;
 var framesPerSec = 15;
 var lastRender = 0;
 var sideSpeed = 10; // frames
@@ -16,7 +16,7 @@ var lastObjectID = 2
 var debugFrameCounter = 0;
 
 var newSpriteCounter = 0;
-var newSpriteEvery = 10;
+var newSpriteEvery = 80;
 var growMode = false;
 
 // sample start state with a few items
@@ -30,15 +30,15 @@ var state = {
   onScreen : [
     {
       id: 1,
-      x : 2,
-      y : 9,
+      x : 0,
+      y : 14,
       color: 1,
       isMoving: 'right'
     }, 
     {
       id: 2,
       x : 7,
-      y : 1,
+      y : 2,
       color: 1,
       isMoving: 'left'
     }  
@@ -55,6 +55,23 @@ function drawSquare(canvas,hLoc,vLoc,color){
   // draws a single unit
   canvas.fillStyle = colorCodes[color];
   canvas.fillRect(hLoc*(canvasWidth/canvasWidthUnits), vLoc*(canvasHeight/canvasHeightUnits), (canvasWidth/canvasWidthUnits), (canvasHeight/canvasHeightUnits));
+}
+
+function drawArrow(canvas,hLoc,vLoc,color,direction){
+  // draws a single triangle
+  canvas.fillStyle = colorCodes[color];
+  var path=new Path2D();
+  if (direction == 'right'){
+    path.moveTo(hLoc*(canvasWidth/canvasWidthUnits),(vLoc*(canvasHeight/canvasHeightUnits)));
+    path.lineTo(((hLoc+1)*(canvasWidth/canvasWidthUnits)),((vLoc+0.5)*(canvasHeight/canvasHeightUnits)));
+    path.lineTo(hLoc*(canvasWidth/canvasWidthUnits),(vLoc+1)*(canvasHeight/canvasHeightUnits));
+  }
+  else {
+    path.moveTo((hLoc+1)*(canvasWidth/canvasWidthUnits),(vLoc*(canvasHeight/canvasHeightUnits)));
+    path.lineTo(((hLoc)*(canvasWidth/canvasWidthUnits)),((vLoc+0.5)*(canvasHeight/canvasHeightUnits)));
+    path.lineTo((hLoc+1)*(canvasWidth/canvasWidthUnits),(vLoc+1)*(canvasHeight/canvasHeightUnits));
+  }
+  canvas.fill(path);
 }
 
 function checkBounds(movingItem){
@@ -187,80 +204,88 @@ function randomIntFromInterval(min, max) {
 }
 
 function addNewBlocks(){
+  // this really is ugly af
   // first check - what vacant spaces do we have on edges?
   var leftState = Array();
   var rightState = Array(); 
+  for (var i = 0, l = (canvasHeightUnits); i < l; i++) {
+    // default value of square is empty
+    leftState[i] = 0;
+    rightState[i] = 0;
+  }
   // iterate all blocks, marking any where x = 0 or x = (canvasWidthUnits - 1)
   for (var i = 0, l = state.onScreen.length; i < l; i++) {
     if (state.onScreen[i].x == 0){
-      leftState.push(i);
+      leftState[state.onScreen[i].y] = 1;
     }
     else if (state.onScreen[i].x == (canvasWidthUnits - 1)){
-      rightState.push(i);
+      rightState[state.onScreen[i].y] = 1;
     }  
   };
-  if ((leftState.length == canvasHeightUnits) || (rightState.length == canvasHeightUnits)){
-    // all units occupied, yikes
+  // count current occupancy of those edge areas
+  var leftEdgeWeight = leftState.reduce((a, b) => a + b, 0);
+  var rightEdgeWeight = rightState.reduce((a, b) => a + b, 0);
+  // is.. there any room?
+  if ((leftEdgeWeight == canvasHeightUnits) || (rightEdgeWeight == canvasHeightUnits)){
+    // one edge is full
     console.log('cannot add new blocks..');
+    newSpriteCounter = 0;
   }
   else {
-    // create array of clear left edge elements
-    var leftClearSquares = Array();
+    // calculate a random position limited by the available space
+    var newLeftSpace = randomIntFromInterval(0, (canvasHeightUnits - leftEdgeWeight));
+    var leftCounter = 0;
+    var foundLoc = 0;
     for (var i = 0, l = (canvasHeightUnits); i < l; i++) {
-      if (leftState.includes(i)){
-        // full!
-      }
-      else {
-        leftClearSquares.push(i);
+      if (leftState[i] == 0){
+        if (leftCounter == newLeftSpace){
+          foundLoc = i;
+        }
+        leftCounter++;
       }
     }
-    var rightClearSquares = Array();
-    for (var i = 0, l = (canvasHeightUnits); i < l; i++) {
-      if (rightState.includes(i)){
-        // full!
-      }
-      else {
-        rightClearSquares.push(i);
-      }
-    }   
-    // add new blocks in spaces
-    // TODO this needs fixing, y is sometimes null?
-    var newLeftSpace = randomIntFromInterval(0, (canvasHeightUnits - leftState.length - 1));
-    var newLeftLocation = leftClearSquares[newLeftSpace];
-    /*
-    console.log('left state');
-    console.log(leftState);
-    console.log('length');
-    console.log(leftState.length);
-    console.log('left clear sq');
-    console.log(leftClearSquares);
-    console.log('rand between 0 and '+(canvasHeightUnits - leftState.length - 1)+ 'was '+newLeftSpace);
-    console.log('New left at '+newLeftLocation+' id '+(lastObjectID+1));
-    */
+    console.log(newLeftSpace+'th empty space is '+foundLoc);
+    
     var newRightMovingBlock = {
       id : (lastObjectID+1),
       x : 0,
-      y : newLeftLocation,
+      y : foundLoc,
       color: randomIntFromInterval(0,2),
       isMoving: 'right'
     };
     state.onScreen.push(newRightMovingBlock); 
     
-    var newRightSpace = randomIntFromInterval(0, (canvasHeightUnits - rightState.length - 1));
-    var newRightLocation = rightClearSquares[newRightSpace];
-    // console.log('New right at '+newRightLocation+' id '+(lastObjectID+2));
+    // repeat, urgh
+
+    var newRightSpace = randomIntFromInterval(0, (canvasHeightUnits - rightEdgeWeight));
+    var rightCounter = 0;
+    var foundLoc = 0;
+    for (var i = 0, l = (canvasHeightUnits); i < l; i++) {
+      if (rightState[i] == 0){
+        if (rightCounter == newRightSpace){
+          foundLoc = i;
+        }
+        rightCounter++;
+      }
+    }
+    console.log(newRightSpace+'th empty space is '+foundLoc);
+    
     var newLeftMovingBlock = {
       id : (lastObjectID+2),
       x : (canvasWidthUnits - 1),
-      y : newRightLocation,
+      y : foundLoc,
       color: randomIntFromInterval(0,2),
       isMoving: 'left'
     };
-    state.onScreen.push(newLeftMovingBlock);
+    state.onScreen.push(newLeftMovingBlock); 
+    
     // update globals
+    
     lastObjectID = (lastObjectID+2);
     newSpriteCounter = 0;
-  }
+    
+  }  
+
 }
 
 function checkGameOver(){
@@ -319,7 +344,13 @@ function draw() {
     if ((thisSquare.y < 0) || (thisSquare.y > canvasWidthUnits)){
       console.log('whut '.thisSquare.id);
     }
-    drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
+    if (thisSquare.isMoving == "no"){
+      drawSquare(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color]);
+    }
+    else {
+      drawArrow(ctx,thisSquare.x,thisSquare.y,cycleColors[thisSquare.color],thisSquare.isMoving);
+    }
+    
   }
 
   // draw score
